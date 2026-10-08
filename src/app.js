@@ -2,6 +2,7 @@ const express = require('express');
 const { notFoundHandler, errorHandler } = require('./middleware/errorHandler');
 const syncRoutes = require('./routes/sync.routes');
 const authRoutes = require('./routes/auth.routes');
+const reportsRoutes = require('./routes/reports.routes');
 
 const app = express();
 
@@ -13,6 +14,7 @@ app.get('/health', (req, res) => {
 
 app.use('/api/sync', syncRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/reports', reportsRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

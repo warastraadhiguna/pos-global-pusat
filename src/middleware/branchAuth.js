@@ -1,26 +1,32 @@
-// STUB — belum diimplementasi, menunggu konfirmasi struktur Bagian A.
-//
-// Middleware: validasi Bearer token dari header Authorization terhadap
-// tabel `branches` (cocokkan ke token_hash, SHA-256 — lihat catatan di
-// schema.sql soal kenapa SHA-256, bukan bcrypt). Kalau cocok & is_active=1,
-// resolve branch_code dari TOKEN itu sendiri (BUKAN dari body payload —
-// ini keputusan keamanan yang dikunci: pusat tidak pernah mempercayai
-// klaim branch dari body) dan taruh di req.branch. Kalau token tidak
-// dikenal/tidak aktif -> 401.
-//
-// RENCANA:
-//   1. Ambil header Authorization, pastikan format "Bearer <token>" — kalau
-//      tidak ada/salah format -> 401 'unauthorized'.
-//   2. Hash token mentah pakai crypto.createHash('sha256') (bawaan Node,
-//      tanpa dependency baru).
-//   3. SELECT id, branch_code FROM branches WHERE token_hash = ? AND is_active = 1.
-//   4. Tidak ketemu -> next(new HttpError(401, 'unauthorized', 'Token cabang tidak dikenal')).
-//   5. Ketemu -> req.branch = { id: row.id, branchCode: row.branch_code }, next().
-//
-// async function requireBranchToken(req, res, next) { ... }
+const pool = require('../config/db');
+const HttpError = require('../utils/HttpError');
+const { hashToken } = require('../utils/tokenHash');
 
+// Validasi Bearer token terhadap tabel branches. branch_code diresolve DARI
+// TOKEN di sini — req.branch.branchCode inilah satu-satunya sumber
+// kebenaran identitas cabang di seluruh request berikutnya (route/service
+// TIDAK PERNAH membaca branch_code dari body payload).
 async function requireBranchToken(req, res, next) {
-  throw new Error('requireBranchToken belum diimplementasi — menunggu konfirmasi struktur Bagian A');
+  try {
+    const header = req.headers.authorization || '';
+    const [scheme, token] = header.split(' ');
+    if (scheme !== 'Bearer' || !token) {
+      return next(new HttpError(401, 'unauthorized', 'Token cabang tidak ditemukan'));
+    }
+
+    const [[branch]] = await pool.query(
+      `SELECT id, branch_code FROM branches WHERE token_hash = ? AND is_active = 1`,
+      [hashToken(token)]
+    );
+    if (!branch) {
+      return next(new HttpError(401, 'unauthorized', 'Token cabang tidak dikenal atau sudah dinonaktifkan'));
+    }
+
+    req.branch = { id: branch.id, branchCode: branch.branch_code };
+    next();
+  } catch (err) {
+    next(err);
+  }
 }
 
 module.exports = { requireBranchToken };

@@ -37,9 +37,11 @@ ss -tlnp | grep -E ':(4100|3000|3001|4000|4200|5000)\b'
 # kalau 4100 kosong di output di atas, pakai 4100 di seluruh panduan ini.
 # Kalau 4100 SUDAH dipakai, ganti PORT=4100 di LANGKAH 3 & 7 dengan port lain yang kosong.
 
-# MySQL/MariaDB sudah ada & cuma dengar di localhost? (jangan sampai 3306 kebuka ke publik)
-ss -tlnp | grep 3306
-# HARUS menunjukkan 127.0.0.1:3306, BUKAN 0.0.0.0:3306 — kalau yang terakhir, laporkan dulu,
+# MySQL/MariaDB sudah ada & cuma dengar di localhost? (jangan sampai kebuka ke publik)
+# CATATAN: MariaDB di server ini dengar di port 5431, BUKAN 3306 standar
+# (dikonfirmasi hasil verifikasi) — makanya cek 5431, bukan 3306.
+ss -tlnp | grep 5431
+# HARUS menunjukkan 127.0.0.1:5431, BUKAN 0.0.0.0:5431 — kalau yang terakhir, laporkan dulu,
 # jangan lanjut (artinya MySQL server ini sudah terbuka ke internet, itu masalah terpisah yang
 # lebih mendesak dari sekadar pasang pos-pusat).
 
@@ -57,13 +59,21 @@ openssl rand -base64 24
 ```
 
 ```bash
-mysql -u root -p
+# -h 127.0.0.1 -P 5431 WAJIB eksplisit — client mysql default pakai Unix
+# socket kalau host ditulis "localhost" (port --port DIABAIKAN diam-diam
+# kalau begitu), jadi tanpa -h ini bisa salah connect ke instance lain atau
+# gagal. Port 5431 sesuai hasil verifikasi (bukan 3306 standar).
+mysql -u root -p -h 127.0.0.1 -P 5431
 ```
 Di prompt MySQL:
 ```sql
 CREATE DATABASE pos_pusat CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE USER 'pos_pusat'@'localhost' IDENTIFIED BY 'TEMPEL_PASSWORD_DARI_ATAS_SINI';
-GRANT ALL PRIVILEGES ON pos_pusat.* TO 'pos_pusat'@'localhost';
+-- '127.0.0.1', BUKAN 'localhost' — app Node connect lewat TCP ke 127.0.0.1
+-- (lihat .env langkah 3), dan MySQL/MariaDB membedakan 'localhost' (socket)
+-- dari '127.0.0.1' (TCP loopback) sbg host match yang BEDA utk user account.
+-- Kalau user dibuat @'localhost', koneksi TCP dari app akan DITOLAK.
+CREATE USER 'pos_pusat'@'127.0.0.1' IDENTIFIED BY 'TEMPEL_PASSWORD_DARI_ATAS_SINI';
+GRANT ALL PRIVILEGES ON pos_pusat.* TO 'pos_pusat'@'127.0.0.1';
 FLUSH PRIVILEGES;
 EXIT;
 ```
@@ -97,7 +107,9 @@ PORT=4100
 HOST=127.0.0.1
 
 DB_HOST=127.0.0.1
-DB_PORT=3306
+# 5431, BUKAN 3306 standar — MariaDB di server ini dengar di port non-default
+# (dikonfirmasi hasil verifikasi VPS).
+DB_PORT=5431
 DB_USER=pos_pusat
 DB_PASSWORD=TEMPEL_PASSWORD_YANG_SAMA_DARI_LANGKAH_1
 DB_NAME=pos_pusat
@@ -222,7 +234,7 @@ pm2 status
 | `POST /api/sync/batch` | YA, tapi WAJIB token Bearer valid | Endpoint ASLI yang dimaksud terbuka — token salah/tidak ada → 401, tidak ada bocoran data apa pun pada respons 401. |
 | Rute lain apa pun | TIDAK ADA | Express app ini cuma punya 2 route di atas — semua rute lain kena `notFoundHandler` (404 JSON generik, tidak ada stack trace/detail internal yang bocor — `errorHandler` cuma kirim `err.message`, bukan `err.stack`, ke klien). |
 | Port Node 4100 langsung | TIDAK (kalau Langkah 9.5 di atas lolos) | `HOST=127.0.0.1` di `.env` + tidak ada rule ufw utk 4100 → cuma bisa diakses dari localhost VPS itu sendiri (lewat nginx), bukan dari internet. |
-| MySQL 3306 | TIDAK (kalau Langkah 0 di atas lolos) | Harus sudah localhost-only SEBELUM pos-pusat dipasang (bukan sesuatu yang kita ubah) — cuma diverifikasi, bukan dikonfigurasi ulang. |
+| MySQL/MariaDB (5431) | TIDAK — dikonfirmasi localhost-only (127.0.0.1:5431) | Sudah begitu SEBELUM pos-pusat dipasang (bukan sesuatu yang kita ubah) — cuma diverifikasi ulang di Langkah 0, bukan dikonfigurasi. |
 | HTTP polos (port 80) utk domain ini | TIDAK disajikan — DIALIHKAN ke HTTPS | `certbot --redirect` menulis rule 301 otomatis ke vhost. |
 
 **Belum/tidak dilakukan di Bagian A ini** (sesuai arahan — sengaja, bukan lupa):

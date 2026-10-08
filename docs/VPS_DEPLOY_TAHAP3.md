@@ -1,12 +1,46 @@
-# Deploy pos-pusat ke VPS — Tahap 3 Bagian A
+# Deploy pos-pusat ke VPS — Tahap 3
 
-**Status: SELESAI & TERVERIFIKASI (8 Oktober 2026).** pos-pusat live di
+**Status: BAGIAN A & B SELESAI & TERVERIFIKASI (8 Oktober 2026).** pos-pusat live di
 `https://sumber-alam.wan-client.com`, dikelola pm2 (berdampingan dgn `new-wanrent-api` yang
-sudah ada duluan, 0 restart di keduanya). Hasil Langkah 9: HTTPS jalan, HTTP->HTTPS redirect
-301 otomatis (certbot `--redirect`), token salah ditolak 401, `fitbull.id` tidak terganggu,
-port 4100 tidak ada di rule ufw (`Default: deny (incoming)` + `HOST=127.0.0.1` di app — dua
-lapis, port ini TIDAK bisa dijangkau dari internet). Cabang `TEST` sudah terdaftar, token
-tersimpan di luar chat/repo ini (pegangan user).
+sudah ada duluan). Hasil Bagian A (Langkah 9): HTTPS jalan, HTTP->HTTPS redirect 301 otomatis
+(certbot `--redirect`), token salah ditolak 401, `fitbull.id` tidak terganggu, port 4100 tidak
+ada di rule ufw (`Default: deny (incoming)` + `HOST=127.0.0.1` di app — dua lapis, port ini
+TIDAK bisa dijangkau dari internet). Cabang `TEST` sudah terdaftar, token tersimpan di luar
+chat/repo ini (pegangan user, tidak pernah transit lewat percakapan — ditaruh langsung ke
+`.env` lokal).
+
+## Bagian B — Uji transport lokal→VPS (data dummy, cabang TEST)
+
+Dari DB cabang lokal dummy (`pos_branch_test_tahap3`, sudah dihapus setelah uji), sync
+sungguhan lewat HTTPS ke `sumber-alam.wan-client.com` — bukan localhost. Semua terbukti
+DARI DATABASE PUSAT (query lewat SSH, bukan diasumsikan dari sisi pengirim saja):
+
+| Uji | Hasil |
+|---|---|
+| Sale normal sampai | `grand_total=100000`, `status=completed`, `branch_code=TEST` |
+| Sale voided sampai DENGAN status-nya | `status=voided`, `voided_at='2026-10-08 13:00:39'` (non-NULL) |
+| Retur sampai | `grand_total=25000`, `sale_id` cocok ke sale asal, `processed_by_name` terisi |
+| **Omzet bersih** | `100000 (sale completed) - 25000 (retur) = 75000` — query SQL langsung di pusat, cocok persis |
+| Retry (kirim ulang baris yg sama) | Jumlah baris TETAP 2 sales / 1 retur (bukan 4/2) — UPSERT, bukan dobel |
+| Token salah | `401` (diuji di Bagian A terhadap endpoint live yang sama) |
+| HTTP polos | Dialihkan 301 ke HTTPS (diuji di Bagian A) |
+| **Penerima dimatikan di tengah** (`pm2 stop pos-pusat`, kirim, `pm2 start` lagi, kirim ulang) | Percobaan pertama gagal bersih (nginx 502, krn upstream mati) — baris TETAP `local_only`, tidak ada yg hilang. Setelah pos-pusat hidup lagi, retry sukses, baris jadi `synced`, sampai di pusat. |
+
+### Bug sungguhan ditemukan & diperbaiki saat uji ini (bukan localhost)
+
+Percobaan sync PERTAMA (sebelum semua di atas) gagal dgn `500 ER_TRUNCATED_WRONG_VALUE:
+Incorrect datetime value` pada `sales.voided_at`. Akar masalah: payload lewat JSON mengubah
+`Date` jadi string ISO 8601 (`"2026-10-08T06:00:39.000Z"`), dan MySQL strict mode (dipakai VPS)
+menolak format itu utk kolom `DATETIME`. Tidak pernah ketahuan di uji Tahap 2 (localhost)
+karena kebetulan tidak ada baris voided yang dikirim di uji itu. Diperbaiki di
+`SyncReceiverService.js` (`toMysqlDateTime()` — parse ISO string balik ke objek `Date` sebelum
+masuk query, lihat commit `a4b4d60`), diverifikasi lokal dulu sebelum di-push, lalu dibuktikan
+lagi di VPS sungguhan (baris di tabel hasil uji di atas). Baris yang gagal di percobaan pertama
+TIDAK hilang — tetap `local_only` di cabang, berhasil terkirim begitu fix di-deploy & di-retry
+(bukti nyata, bukan simulasi, bahwa kegagalan tidak pernah menggandakan atau kehilangan data).
+
+**Belum dilakukan** (sesuai arahan Tahap 3 — sengaja): `sync_settings.enabled` TIDAK dinyalakan
+di server cabang mana pun, cabang `SMG` TIDAK didaftarkan, scheduler produksi tetap mati.
 
 **VPS:** `402287` (156.67.219.118) — server BERSAMA, ±40 situs lain hidup di sana (lihat
 `CATATAN_SERVER_VPS.md`). Prinsip: hanya MENAMBAH, tidak mengubah apa pun yang sudah ada.

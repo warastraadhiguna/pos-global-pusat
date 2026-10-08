@@ -1,5 +1,18 @@
 const pool = require('../config/db');
 
+// Payload datang lewat JSON — Date di sisi pengirim jadi STRING ISO 8601
+// ("2026-10-08T06:00:39.000Z") saat JSON.stringify, bukan objek Date lagi.
+// MySQL (strict mode) MENOLAK string berformat itu utk kolom DATETIME/DATE
+// ("Incorrect datetime value") — ditemukan saat uji transport sungguhan ke
+// VPS (Tahap 3), tidak pernah ketahuan di uji localhost krn kebetulan tidak
+// pernah ada baris voided yg dikirim di uji sebelumnya. Parse balik ke objek
+// Date di sini SEBELUM masuk query — mysql2 tahu cara serialize objek Date
+// dgn benar ke format yang MySQL terima, beda dari string ISO mentah.
+function toMysqlDateTime(value) {
+  if (!value) return null;
+  return new Date(value);
+}
+
 // UPSERT satu batch (sales + sales_returns) dalam SATU transaksi. branchCode
 // datang dari req.branch (hasil resolve token di branchAuth.js) — dipakai
 // APA ADANYA di setiap baris, TIDAK PERNAH dibaca dari field apa pun di
@@ -41,7 +54,7 @@ async function receiveBatch({ branchCode, sales = [], salesReturns = [] }) {
           row.id, branchCode, row.saleNumber, row.cashierName || null, row.customerName || null,
           row.subtotal, row.discountTotal || 0, row.dpp || 0, row.ppnRate ?? null, row.ppnMode || null,
           row.ppnAmount || 0, row.grandTotal, row.totalCost || 0, row.grossProfit || 0, row.status,
-          row.voidReason || null, row.voidedAt || null, row.createdAt,
+          row.voidReason || null, toMysqlDateTime(row.voidedAt), toMysqlDateTime(row.createdAt),
         ]
       );
     }
@@ -62,9 +75,9 @@ async function receiveBatch({ branchCode, sales = [], salesReturns = [] }) {
           total_cost = VALUES(total_cost),
           processed_by_name = VALUES(processed_by_name)`,
         [
-          row.id, branchCode, row.returnNumber, row.saleId, row.returnDate,
+          row.id, branchCode, row.returnNumber, row.saleId, toMysqlDateTime(row.returnDate),
           row.isCashRefund ? 1 : 0, row.reason || null, row.grandTotal, row.totalCost,
-          row.processedByName || null, row.createdAt,
+          row.processedByName || null, toMysqlDateTime(row.createdAt),
         ]
       );
     }

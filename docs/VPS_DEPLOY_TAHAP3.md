@@ -1,5 +1,13 @@
 # Deploy pos-pusat ke VPS — Tahap 3 Bagian A
 
+**Status: SELESAI & TERVERIFIKASI (8 Oktober 2026).** pos-pusat live di
+`https://sumber-alam.wan-client.com`, dikelola pm2 (berdampingan dgn `new-wanrent-api` yang
+sudah ada duluan, 0 restart di keduanya). Hasil Langkah 9: HTTPS jalan, HTTP->HTTPS redirect
+301 otomatis (certbot `--redirect`), token salah ditolak 401, `fitbull.id` tidak terganggu,
+port 4100 tidak ada di rule ufw (`Default: deny (incoming)` + `HOST=127.0.0.1` di app — dua
+lapis, port ini TIDAK bisa dijangkau dari internet). Cabang `TEST` sudah terdaftar, token
+tersimpan di luar chat/repo ini (pegangan user).
+
 **VPS:** `402287` (156.67.219.118) — server BERSAMA, ±40 situs lain hidup di sana (lihat
 `CATATAN_SERVER_VPS.md`). Prinsip: hanya MENAMBAH, tidak mengubah apa pun yang sudah ada.
 Jangan `systemctl restart` layanan global (nginx, mariadb) — pakai `reload`. Selalu `nginx -t`

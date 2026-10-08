@@ -1,0 +1,505 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>pos-pusat — Dashboard Konsolidasi</title>
+<style>
+  :root {
+    --bg: #f3f4f6;
+    --card: #ffffff;
+    --border: #e5e7eb;
+    --text: #111827;
+    --muted: #6b7280;
+    --accent: #2563eb;
+    --accent-dark: #1d4ed8;
+    --danger: #dc2626;
+    --danger-bg: #fef2f2;
+    --success: #16a34a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  .hidden { display: none !important; }
+
+  /* ---------- Login ---------- */
+  #login-view {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+  }
+  .login-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 32px;
+    width: 100%;
+    max-width: 360px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+  .login-card h1 {
+    font-size: 20px;
+    margin: 0 0 4px;
+  }
+  .login-card p.sub {
+    color: var(--muted);
+    font-size: 13px;
+    margin: 0 0 24px;
+  }
+  label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 6px;
+    color: #374151;
+  }
+  input[type="text"], input[type="password"], input[type="date"] {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 14px;
+    margin-bottom: 16px;
+    background: #fff;
+    color: var(--text);
+  }
+  button {
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .btn-primary {
+    width: 100%;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 11px;
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .btn-primary:hover { background: var(--accent-dark); }
+  .btn-primary:disabled { opacity: 0.6; cursor: default; }
+
+  .error-banner {
+    background: var(--danger-bg);
+    color: var(--danger);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 13px;
+    margin-bottom: 16px;
+  }
+
+  /* ---------- Dashboard ---------- */
+  header {
+    background: #fff;
+    border-bottom: 1px solid var(--border);
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  header h1 { font-size: 16px; margin: 0; }
+  header .user-info { display: flex; align-items: center; gap: 14px; font-size: 13px; color: var(--muted); }
+  .btn-logout {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 8px;
+    padding: 7px 14px;
+    font-size: 13px;
+  }
+  .btn-logout:hover { background: #f9fafb; }
+
+  main {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 24px 16px 48px;
+  }
+
+  .filter-bar {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+  .filter-btn {
+    border: 1px solid var(--border);
+    background: #fff;
+    color: var(--text);
+    border-radius: 999px;
+    padding: 7px 16px;
+    font-size: 13px;
+    font-weight: 500;
+  }
+  .filter-btn.active {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+  .custom-range { display: none; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .custom-range.active { display: flex; }
+  .custom-range input[type="date"] { margin-bottom: 0; width: auto; }
+  .btn-apply {
+    background: var(--text);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 9px 14px;
+    font-size: 13px;
+  }
+
+  .period-label { color: var(--muted); font-size: 13px; margin-bottom: 20px; }
+
+  .total-card {
+    background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+    color: #fff;
+    border-radius: 14px;
+    padding: 28px;
+    margin-bottom: 24px;
+  }
+  .total-card .label { font-size: 13px; opacity: 0.85; margin-bottom: 6px; }
+  .total-card .amount { font-size: 36px; font-weight: 700; line-height: 1.1; }
+  .total-card .meta { margin-top: 10px; font-size: 13px; opacity: 0.9; }
+
+  .branch-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+  .branch-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px;
+  }
+  .branch-card .code {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    background: #eef2ff;
+    color: var(--accent-dark);
+    padding: 2px 8px;
+    border-radius: 6px;
+    margin-bottom: 8px;
+  }
+  .branch-card .name { font-size: 13px; color: var(--muted); margin-bottom: 10px; }
+  .branch-card .net { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+  .branch-card .net.negative { color: var(--danger); }
+  .branch-card .trx { font-size: 13px; color: var(--muted); }
+  .branch-card .detail { font-size: 12px; color: var(--muted); margin-top: 8px; border-top: 1px dashed var(--border); padding-top: 8px; }
+
+  .chart-section {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 24px;
+  }
+  .chart-section h2 { font-size: 14px; margin: 0 0 16px; }
+  .bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-size: 13px; }
+  .bar-row .bar-label { width: 70px; flex-shrink: 0; font-weight: 600; }
+  .bar-row .bar-track { flex: 1; background: #f3f4f6; border-radius: 6px; height: 22px; position: relative; overflow: hidden; }
+  .bar-row .bar-fill { height: 100%; background: var(--accent); border-radius: 6px; transition: width 0.3s; }
+  .bar-row .bar-fill.negative { background: var(--danger); }
+  .bar-row .bar-value { width: 140px; flex-shrink: 0; text-align: right; font-variant-numeric: tabular-nums; }
+
+  .state-msg {
+    text-align: center;
+    color: var(--muted);
+    padding: 48px 16px;
+    font-size: 14px;
+  }
+  .loading-msg { text-align: center; color: var(--muted); padding: 32px; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<div id="login-view">
+  <div class="login-card">
+    <h1>pos-pusat</h1>
+    <p class="sub">Dashboard Konsolidasi — login untuk melihat laporan</p>
+    <div id="login-error"></div>
+    <form id="login-form">
+      <label for="login-username">Username</label>
+      <input type="text" id="login-username" autocomplete="username" required>
+      <label for="login-password">Password</label>
+      <input type="password" id="login-password" autocomplete="current-password" required>
+      <button type="submit" class="btn-primary" id="login-submit">Masuk</button>
+    </form>
+  </div>
+</div>
+
+<div id="dashboard-view" class="hidden">
+  <header>
+    <h1>pos-pusat — Dashboard Konsolidasi</h1>
+    <div class="user-info">
+      <span id="user-name"></span>
+      <button class="btn-logout" id="logout-btn">Keluar</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="filter-bar">
+      <button class="filter-btn" data-period="today">Hari Ini</button>
+      <button class="filter-btn" data-period="month">Bulan Ini</button>
+      <button class="filter-btn" data-period="custom">Rentang Custom</button>
+      <div class="custom-range" id="custom-range">
+        <input type="date" id="custom-start">
+        <span>s/d</span>
+        <input type="date" id="custom-end">
+        <button class="btn-apply" id="custom-apply">Terapkan</button>
+      </div>
+    </div>
+    <div class="period-label" id="period-label"></div>
+
+    <div id="report-content">
+      <div class="loading-msg">Memuat laporan...</div>
+    </div>
+  </main>
+</div>
+
+<script>
+const API_BASE = '/api';
+const TOKEN_KEY = 'pospusat_token';
+
+let currentPeriod = 'today';
+let customStart = '';
+let customEnd = '';
+
+function getToken() { return localStorage.getItem(TOKEN_KEY); }
+function setToken(t) { localStorage.setItem(TOKEN_KEY, t); }
+function clearToken() { localStorage.removeItem(TOKEN_KEY); }
+
+async function apiFetch(path, options = {}) {
+  const token = getToken();
+  const headers = Object.assign({ 'Content-Type': 'application/json' }, options.headers || {});
+  if (token) headers['Authorization'] = 'Bearer ' + token;
+
+  let res;
+  try {
+    res = await fetch(API_BASE + path, Object.assign({}, options, { headers }));
+  } catch (networkErr) {
+    throw new Error('Tidak bisa menghubungi server — periksa koneksi.');
+  }
+
+  // 401 di /auth/login ARTINYA username/password salah — itu bukan "sesi
+  // berakhir" (belum pernah ada sesi sama sekali), jadi JANGAN diperlakukan
+  // sama dgn 401 di endpoint lain (yg memang berarti token tidak valid/
+  // kedaluwarsa/user dinonaktifkan). Biarkan jatuh ke penanganan error
+  // biasa di bawah supaya pesan ASLI dari server ("Username atau password
+  // salah") yang tampil, bukan pesan generik "sesi berakhir".
+  if (res.status === 401 && path !== '/auth/login') {
+    clearToken();
+    showLogin('Sesi berakhir, silakan login kembali.');
+    throw new Error('unauthorized');
+  }
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.message || ('Terjadi kesalahan (' + res.status + ')'));
+  }
+  return data;
+}
+
+// ---------- Rupiah formatting — TAMPILAN SAJA, angka sudah final dari server ----------
+function formatRupiah(value) {
+  const n = Number(value) || 0;
+  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(n);
+}
+function formatNumber(value) {
+  return new Intl.NumberFormat('id-ID').format(Number(value) || 0);
+}
+
+// ---------- View switching ----------
+function showLogin(message) {
+  document.getElementById('login-view').classList.remove('hidden');
+  document.getElementById('dashboard-view').classList.add('hidden');
+  const errEl = document.getElementById('login-error');
+  errEl.innerHTML = message ? '<div class="error-banner">' + escapeHtml(message) + '</div>' : '';
+}
+
+function showDashboard(user) {
+  document.getElementById('login-view').classList.add('hidden');
+  document.getElementById('dashboard-view').classList.remove('hidden');
+  if (user) document.getElementById('user-name').textContent = user.fullName || user.username;
+  loadReport();
+}
+
+function escapeHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+// ---------- Init: cek sesi lewat /me ----------
+async function init() {
+  const token = getToken();
+  if (!token) { showLogin(); return; }
+  try {
+    const data = await apiFetch('/auth/me');
+    showDashboard(data.user);
+  } catch (err) {
+    // apiFetch sudah showLogin() kalau 401; kalau error jaringan, fallback ke login juga
+    if (err.message !== 'unauthorized') showLogin();
+  }
+}
+
+// ---------- Login form ----------
+document.getElementById('login-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const username = document.getElementById('login-username').value.trim();
+  const password = document.getElementById('login-password').value;
+  const submitBtn = document.getElementById('login-submit');
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Memeriksa...';
+  try {
+    const data = await apiFetch('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) });
+    setToken(data.token);
+    document.getElementById('login-password').value = '';
+    showDashboard(data.user);
+  } catch (err) {
+    showLogin(err.message);
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Masuk';
+  }
+});
+
+// ---------- Logout ----------
+document.getElementById('logout-btn').addEventListener('click', () => {
+  clearToken();
+  showLogin();
+});
+
+// ---------- Filter bar ----------
+document.querySelectorAll('.filter-btn').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const period = btn.dataset.period;
+    document.querySelectorAll('.filter-btn').forEach((b) => b.classList.remove('active'));
+    btn.classList.add('active');
+    const customRangeEl = document.getElementById('custom-range');
+    if (period === 'custom') {
+      customRangeEl.classList.add('active');
+      return; // tunggu user pilih tanggal & klik Terapkan
+    }
+    customRangeEl.classList.remove('active');
+    currentPeriod = period;
+    loadReport();
+  });
+});
+
+document.getElementById('custom-apply').addEventListener('click', () => {
+  const start = document.getElementById('custom-start').value;
+  const end = document.getElementById('custom-end').value;
+  if (!start || !end) {
+    renderError('Pilih tanggal mulai dan akhir dulu.');
+    return;
+  }
+  currentPeriod = 'custom';
+  customStart = start;
+  customEnd = end;
+  loadReport();
+});
+
+// ---------- Load & render report ----------
+async function loadReport() {
+  const contentEl = document.getElementById('report-content');
+  contentEl.innerHTML = '<div class="loading-msg">Memuat laporan...</div>';
+  try {
+    let qs = 'period=' + encodeURIComponent(currentPeriod);
+    if (currentPeriod === 'custom') {
+      qs += '&startDate=' + encodeURIComponent(customStart) + '&endDate=' + encodeURIComponent(customEnd);
+    }
+    const data = await apiFetch('/reports/consolidated?' + qs);
+    document.getElementById('period-label').textContent = data.label || '';
+    renderReport(data);
+  } catch (err) {
+    if (err.message !== 'unauthorized') renderError(err.message);
+  }
+}
+
+function renderError(message) {
+  document.getElementById('report-content').innerHTML =
+    '<div class="error-banner">' + escapeHtml(message) + '</div>';
+}
+
+function renderReport(data) {
+  const contentEl = document.getElementById('report-content');
+  const branches = data.branches || [];
+
+  if (branches.length === 0) {
+    contentEl.innerHTML = '<div class="state-msg">Belum ada cabang terdaftar di pusat.</div>';
+    return;
+  }
+
+  const totalNet = Number(data.total.netOmzet) || 0;
+  const totalNegative = totalNet < 0;
+
+  let html = '';
+
+  // Total card
+  html += '<div class="total-card">';
+  html += '  <div class="label">Omzet Bersih Gabungan — ' + escapeHtml(data.label || '') + '</div>';
+  html += '  <div class="amount">' + formatRupiah(totalNet) + '</div>';
+  html += '  <div class="meta">' + formatNumber(data.total.transactionCount) + ' transaksi di seluruh cabang</div>';
+  html += '</div>';
+
+  // Branch cards
+  html += '<div class="branch-grid">';
+  branches.forEach((b) => {
+    const net = Number(b.netOmzet) || 0;
+    const negative = net < 0;
+    html += '<div class="branch-card">';
+    html += '  <span class="code">' + escapeHtml(b.branchCode) + '</span>';
+    html += '  <div class="name">' + escapeHtml(b.branchName || b.branchCode) + '</div>';
+    html += '  <div class="net' + (negative ? ' negative' : '') + '">' + formatRupiah(net) + '</div>';
+    html += '  <div class="trx">' + formatNumber(b.transactionCount) + ' transaksi</div>';
+    html += '  <div class="detail">';
+    html += 'Kotor ' + formatRupiah(b.grossSales) + ' &middot; Retur ' + formatNumber(b.returnCount) + ' (' + formatRupiah(b.totalReturns) + ')';
+    if (Number(b.voidedCount) > 0) html += ' &middot; ' + formatNumber(b.voidedCount) + ' di-void (tidak dihitung)';
+    html += '  </div>';
+    html += '</div>';
+  });
+  html += '</div>';
+
+  // Simple comparison bar chart — div width%, bukan library chart.
+  if (branches.length > 1) {
+    const maxAbs = Math.max(1, ...branches.map((b) => Math.abs(Number(b.netOmzet) || 0)));
+    html += '<div class="chart-section">';
+    html += '  <h2>Perbandingan Omzet Bersih Antar Cabang</h2>';
+    branches.forEach((b) => {
+      const net = Number(b.netOmzet) || 0;
+      const negative = net < 0;
+      const widthPct = Math.max(2, (Math.abs(net) / maxAbs) * 100);
+      html += '<div class="bar-row">';
+      html += '  <div class="bar-label">' + escapeHtml(b.branchCode) + '</div>';
+      html += '  <div class="bar-track"><div class="bar-fill' + (negative ? ' negative' : '') + '" style="width:' + widthPct.toFixed(1) + '%"></div></div>';
+      html += '  <div class="bar-value">' + formatRupiah(net) + '</div>';
+      html += '</div>';
+    });
+    html += '</div>';
+  }
+
+  contentEl.innerHTML = html;
+}
+
+// Tandai tombol "Hari Ini" aktif sejak awal — currentPeriod sudah 'today'
+// secara default, tapi class .active sebelumnya cuma dipasang di dalam
+// click handler, jadi tidak pernah kepasang kalau user belum klik apa pun.
+document.querySelector('.filter-btn[data-period="today"]').classList.add('active');
+
+init();
+</script>
+</body>
+</html>

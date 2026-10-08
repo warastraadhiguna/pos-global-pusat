@@ -20,6 +20,7 @@ async function getConsolidatedReport({ startDate, endDate }) {
   const [rows] = await pool.query(
     `SELECT
        b.branch_code,
+       b.branch_name,
        COALESCE(s.transaction_count, 0) AS transaction_count,
        COALESCE(s.voided_count, 0) AS voided_count,
        COALESCE(s.gross_sales, 0) AS gross_sales,
@@ -61,6 +62,7 @@ async function getConsolidatedReport({ startDate, endDate }) {
 
     return {
       branchCode: row.branch_code,
+      branchName: row.branch_name || null,
       transactionCount,
       voidedCount: Number(row.voided_count) || 0,
       returnCount: Number(row.return_count) || 0,

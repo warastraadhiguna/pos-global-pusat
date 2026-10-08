@@ -102,4 +102,29 @@ CREATE TABLE sales_returns (
 CREATE INDEX idx_sales_returns_branch ON sales_returns(branch_code);
 CREATE INDEX idx_sales_returns_sale ON sales_returns(sale_id);
 
+-- Login dashboard pusat (Tahap 4) — TERPISAH TOTAL dari `branches` di atas
+-- (itu identitas MESIN/cabang lewat token, ini identitas MANUSIA lewat
+-- password) dan dari `users` di DB cabang manapun (database yang beda
+-- sama sekali). SENGAJA datar — tidak ada role/permission/branch_id:
+-- siapa pun yang login boleh lihat semua laporan konsolidasi, cukup itu.
+-- password_hash = bcrypt (BEDA dari branches.token_hash yang SHA-256 —
+-- password manusia butuh hash lambat tahan brute-force, token acak
+-- panjang tidak). failed_login_attempts/locked_until = lockout, pola
+-- identik dgn users di server cabang (lihat AuthService.js).
+-- Diisi lewat script `register-user.js` (operasi admin manual, BUKAN
+-- lewat endpoint HTTP — sama alasan dgn register-branch.js: tidak boleh
+-- ada akun admin pusat yang bisa dibuat dari luar).
+DROP TABLE IF EXISTS users;
+CREATE TABLE users (
+  id                     CHAR(36)     NOT NULL PRIMARY KEY,
+  username               VARCHAR(50)  NOT NULL UNIQUE,
+  password_hash          VARCHAR(255) NOT NULL,
+  full_name              VARCHAR(100) NOT NULL,
+  is_active              TINYINT(1)   NOT NULL DEFAULT 1,
+  failed_login_attempts  INT          NOT NULL DEFAULT 0,
+  locked_until           DATETIME     NULL,
+  created_at             DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at             DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
 SET FOREIGN_KEY_CHECKS = 1;

@@ -8,11 +8,16 @@
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "db:migrate": "node src/db/migrate.js",
-    "db:register-branch": "node src/db/register-branch.js"
+    "db:register-branch": "node src/db/register-branch.js",
+    "db:add-users-table": "node src/db/add-users-table.js",
+    "db:register-user": "node src/db/register-user.js"
   },
   "dependencies": {
+    "bcryptjs": "^2.4.3",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
+    "express-rate-limit": "^7.4.0",
+    "jsonwebtoken": "^9.0.2",
     "mysql2": "^3.11.0",
     "uuid": "^9.0.1"
   }

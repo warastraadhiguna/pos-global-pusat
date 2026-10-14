@@ -102,6 +102,55 @@ CREATE TABLE sales_returns (
 CREATE INDEX idx_sales_returns_branch ON sales_returns(branch_code);
 CREATE INDEX idx_sales_returns_sale ON sales_returns(sale_id);
 
+-- Lapis 2 — pembelian. Pola IDENTIK sales di atas (branch_code, PK = UUID
+-- asli cabang, branch_created_at vs received_at). grand_total = DPP + PPN
+-- Masukan (jumlah kas/utang sungguhan di cabang) — inilah basis "Pembelian
+-- Bersih" di ReportService, BUKAN dpp/subtotal.
+DROP TABLE IF EXISTS purchases;
+CREATE TABLE purchases (
+  id                 CHAR(36)      NOT NULL PRIMARY KEY,   -- UUID ASLI dari purchases.id cabang
+  branch_code        VARCHAR(20)   NOT NULL,
+  purchase_number    VARCHAR(30)   NOT NULL,
+  supplier_name      VARCHAR(100)  NULL,                   -- snapshot teks, sama pola dgn cashier_name
+  subtotal           INT           NOT NULL DEFAULT 0,
+  discount_total     INT           NOT NULL DEFAULT 0,
+  dpp                INT           NOT NULL DEFAULT 0,
+  ppn_rate           DECIMAL(8,4)  NULL,
+  ppn_mode           VARCHAR(10)   NULL,
+  ppn_amount         INT           NOT NULL DEFAULT 0,
+  grand_total        INT           NOT NULL,
+  status             VARCHAR(20)   NOT NULL,                -- 'completed' | 'voided', apa adanya dari cabang
+  void_reason        TEXT          NULL,
+  voided_at          DATETIME      NULL,
+  branch_created_at  DATETIME      NOT NULL,
+  received_at        DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at         DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+CREATE INDEX idx_purchases_branch ON purchases(branch_code);
+CREATE INDEX idx_purchases_status ON purchases(status);
+
+-- purchase_returns TIDAK punya purchase_id — retur pembelian di cabang
+-- memang tidak terhubung ke nota pembelian asli (keputusan desain yang
+-- sudah diaudit terpisah di server), jadi tidak ada kolom itu di sini juga.
+DROP TABLE IF EXISTS purchase_returns;
+CREATE TABLE purchase_returns (
+  id                 CHAR(36)     NOT NULL PRIMARY KEY,   -- UUID ASLI dari purchase_returns.id cabang
+  branch_code        VARCHAR(20)  NOT NULL,
+  return_number      VARCHAR(30)  NOT NULL,
+  supplier_name      VARCHAR(100) NULL,
+  return_date        DATE         NOT NULL,
+  payment_type       VARCHAR(10)  NOT NULL,                -- 'cash' | 'credit', apa adanya dari cabang
+  reason             TEXT         NULL,
+  grand_total        INT          NOT NULL,
+  processed_by_name  VARCHAR(100) NULL,
+  branch_created_at  DATETIME     NOT NULL,
+  received_at        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at         DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+CREATE INDEX idx_purchase_returns_branch ON purchase_returns(branch_code);
+
 -- Login dashboard pusat (Tahap 4) — TERPISAH TOTAL dari `branches` di atas
 -- (itu identitas MESIN/cabang lewat token, ini identitas MANUSIA lewat
 -- password) dan dari `users` di DB cabang manapun (database yang beda

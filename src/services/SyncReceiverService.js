@@ -13,15 +13,16 @@ function toMysqlDateTime(value) {
   return new Date(value);
 }
 
-// UPSERT satu batch (sales + sales_returns) dalam SATU transaksi. branchCode
-// datang dari req.branch (hasil resolve token di branchAuth.js) — dipakai
-// APA ADANYA di setiap baris, TIDAK PERNAH dibaca dari field apa pun di
-// dalam `row` itu sendiri walau payload membawanya.
+// UPSERT satu batch (sales + sales_returns + purchases + purchase_returns —
+// Lapis 1 & 2 sekaligus) dalam SATU transaksi. branchCode datang dari
+// req.branch (hasil resolve token di branchAuth.js) — dipakai APA ADANYA
+// di setiap baris, TIDAK PERNAH dibaca dari field apa pun di dalam `row`
+// itu sendiri walau payload membawanya.
 //
 // Idempotent: `id` tiap baris adalah UUID ASLI dari cabang (PK di sini
 // juga) — ON DUPLICATE KEY UPDATE berarti kiriman ulang (retry) MENIMPA
 // baris yang sama persis, tidak pernah menggandakan.
-async function receiveBatch({ branchCode, sales = [], salesReturns = [] }) {
+async function receiveBatch({ branchCode, sales = [], salesReturns = [], purchases = [], purchaseReturns = [] }) {
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
@@ -82,10 +83,66 @@ async function receiveBatch({ branchCode, sales = [], salesReturns = [] }) {
       );
     }
 
+    for (const row of purchases) {
+      await conn.query(
+        `INSERT INTO purchases (
+          id, branch_code, purchase_number, supplier_name,
+          subtotal, discount_total, dpp, ppn_rate, ppn_mode, ppn_amount,
+          grand_total, status, void_reason, voided_at, branch_created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE
+          purchase_number = VALUES(purchase_number),
+          supplier_name = VALUES(supplier_name),
+          subtotal = VALUES(subtotal),
+          discount_total = VALUES(discount_total),
+          dpp = VALUES(dpp),
+          ppn_rate = VALUES(ppn_rate),
+          ppn_mode = VALUES(ppn_mode),
+          ppn_amount = VALUES(ppn_amount),
+          grand_total = VALUES(grand_total),
+          status = VALUES(status),
+          void_reason = VALUES(void_reason),
+          voided_at = VALUES(voided_at)`,
+        [
+          row.id, branchCode, row.purchaseNumber, row.supplierName || null,
+          row.subtotal || 0, row.discountTotal || 0, row.dpp || 0, row.ppnRate ?? null, row.ppnMode || null,
+          row.ppnAmount || 0, row.grandTotal, row.status, row.voidReason || null,
+          toMysqlDateTime(row.voidedAt), toMysqlDateTime(row.createdAt),
+        ]
+      );
+    }
+
+    for (const row of purchaseReturns) {
+      await conn.query(
+        `INSERT INTO purchase_returns (
+          id, branch_code, return_number, supplier_name, return_date, payment_type,
+          reason, grand_total, processed_by_name, branch_created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE
+          return_number = VALUES(return_number),
+          supplier_name = VALUES(supplier_name),
+          return_date = VALUES(return_date),
+          payment_type = VALUES(payment_type),
+          reason = VALUES(reason),
+          grand_total = VALUES(grand_total),
+          processed_by_name = VALUES(processed_by_name)`,
+        [
+          row.id, branchCode, row.returnNumber, row.supplierName || null, toMysqlDateTime(row.returnDate),
+          row.paymentType, row.reason || null, row.grandTotal, row.processedByName || null,
+          toMysqlDateTime(row.createdAt),
+        ]
+      );
+    }
+
     await conn.query(`UPDATE branches SET last_sync_at = NOW() WHERE branch_code = ?`, [branchCode]);
 
     await conn.commit();
-    return { sales: sales.length, salesReturns: salesReturns.length };
+    return {
+      sales: sales.length,
+      salesReturns: salesReturns.length,
+      purchases: purchases.length,
+      purchaseReturns: purchaseReturns.length,
+    };
   } catch (err) {
     await conn.rollback();
     throw err;

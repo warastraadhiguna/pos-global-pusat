@@ -194,10 +194,14 @@
     margin-bottom: 8px;
   }
   .branch-card .name { font-size: 13px; color: var(--muted); margin-bottom: 10px; }
-  .branch-card .net { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+  .branch-card .metric-row { display: flex; gap: 16px; }
+  .branch-card .metric { flex: 1; min-width: 0; }
+  .branch-card .metric-label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 2px; }
+  .branch-card .net { font-size: 19px; font-weight: 700; margin-bottom: 4px; }
   .branch-card .net.negative { color: var(--danger); }
+  .branch-card .net.purchases { color: var(--accent-dark); }
   .branch-card .trx { font-size: 13px; color: var(--muted); }
-  .branch-card .detail { font-size: 12px; color: var(--muted); margin-top: 8px; border-top: 1px dashed var(--border); padding-top: 8px; }
+  .branch-card .detail { font-size: 12px; color: var(--muted); margin-top: 8px; border-top: 1px dashed var(--border); padding-top: 8px; line-height: 1.6; }
 
   .chart-section {
     background: var(--card);
@@ -460,14 +464,28 @@ function renderReport(data) {
   branches.forEach((b) => {
     const net = Number(b.netOmzet) || 0;
     const negative = net < 0;
+    const netPurchases = Number(b.netPurchases) || 0;
     html += '<div class="branch-card">';
     html += '  <span class="code">' + escapeHtml(b.branchCode) + '</span>';
     html += '  <div class="name">' + escapeHtml(b.branchName || b.branchCode) + '</div>';
-    html += '  <div class="net' + (negative ? ' negative' : '') + '">' + formatRupiah(net) + '</div>';
-    html += '  <div class="trx">' + formatNumber(b.transactionCount) + ' transaksi</div>';
+    html += '  <div class="metric-row">';
+    html += '    <div class="metric">';
+    html += '      <div class="metric-label">Omzet</div>';
+    html += '      <div class="net' + (negative ? ' negative' : '') + '">' + formatRupiah(net) + '</div>';
+    html += '      <div class="trx">' + formatNumber(b.transactionCount) + ' transaksi</div>';
+    html += '    </div>';
+    html += '    <div class="metric">';
+    html += '      <div class="metric-label">Pembelian</div>';
+    html += '      <div class="net purchases">' + formatRupiah(netPurchases) + '</div>';
+    html += '      <div class="trx">' + formatNumber(b.purchaseCount) + ' nota</div>';
+    html += '    </div>';
+    html += '  </div>';
     html += '  <div class="detail">';
-    html += 'Kotor ' + formatRupiah(b.grossSales) + ' &middot; Retur ' + formatNumber(b.returnCount) + ' (' + formatRupiah(b.totalReturns) + ')';
-    if (Number(b.voidedCount) > 0) html += ' &middot; ' + formatNumber(b.voidedCount) + ' di-void (tidak dihitung)';
+    html += 'Omzet kotor ' + formatRupiah(b.grossSales) + ' &middot; Retur jual ' + formatNumber(b.returnCount) + ' (' + formatRupiah(b.totalReturns) + ')';
+    if (Number(b.voidedCount) > 0) html += ' &middot; ' + formatNumber(b.voidedCount) + ' jual di-void';
+    html += '<br>';
+    html += 'Beli kotor ' + formatRupiah(b.grossPurchases) + ' &middot; Retur beli ' + formatNumber(b.purchaseReturnCount) + ' (' + formatRupiah(b.totalPurchaseReturns) + ')';
+    if (Number(b.voidedPurchaseCount) > 0) html += ' &middot; ' + formatNumber(b.voidedPurchaseCount) + ' beli di-void';
     html += '  </div>';
     html += '</div>';
   });

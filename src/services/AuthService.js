@@ -67,4 +67,26 @@ async function login(username, password) {
   return { token: signToken(authUser), user: authUser };
 }
 
-module.exports = { login, signToken };
+// Self-service — user ganti password MILIKNYA SENDIRI (dropdown profil
+// dashboard). Pola identik server/src/services/AuthService.js.changeOwnPassword
+// — userId selalu dari token, verifikasi password lama wajib (beda dari
+// reset lewat register-user.js yang tidak perlu tahu password lama).
+async function changeOwnPassword(userId, currentPassword, newPassword) {
+  const [[user]] = await pool.query(`SELECT password_hash FROM users WHERE id = ? AND is_active = 1`, [userId]);
+  if (!user) {
+    throw new HttpError(404, 'user_not_found', 'Akun tidak ditemukan atau sudah dinonaktifkan');
+  }
+
+  const valid = await bcrypt.compare(currentPassword, user.password_hash);
+  if (!valid) {
+    throw new HttpError(401, 'invalid_credentials', 'Password saat ini salah');
+  }
+  if (!newPassword || newPassword.length < 6) {
+    throw new HttpError(400, 'bad_request', 'Password baru minimal 6 karakter');
+  }
+
+  const newHash = await bcrypt.hash(newPassword, 10);
+  await pool.query(`UPDATE users SET password_hash = ? WHERE id = ?`, [newHash, userId]);
+}
+
+module.exports = { login, signToken, changeOwnPassword };

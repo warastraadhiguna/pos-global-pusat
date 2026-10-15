@@ -107,16 +107,52 @@
     gap: 10px;
   }
   header h1 { font-size: 16px; margin: 0; }
-  header .user-info { display: flex; align-items: center; gap: 14px; font-size: 13px; color: var(--muted); }
-  .btn-logout {
-    background: transparent;
-    border: 1px solid var(--border);
-    color: var(--text);
-    border-radius: 8px;
-    padding: 7px 14px;
-    font-size: 13px;
+
+  /* ---------- Dropdown profil (pojok kanan atas) ---------- */
+  .profile-menu { position: relative; }
+  .profile-trigger {
+    display: flex; align-items: center; gap: 8px;
+    background: #fff; border: 1px solid var(--border); border-radius: 999px;
+    padding: 6px 12px 6px 8px; font-size: 13px; color: var(--text);
   }
-  .btn-logout:hover { background: #f9fafb; }
+  .profile-trigger:hover { background: #f9fafb; }
+  .profile-avatar {
+    width: 22px; height: 22px; border-radius: 50%; background: #eef2ff;
+    display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0;
+  }
+  .profile-trigger .chevron { font-size: 10px; color: var(--muted); }
+  .profile-dropdown {
+    position: absolute; top: calc(100% + 8px); right: 0;
+    background: #fff; border: 1px solid var(--border); border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12); min-width: 200px; overflow: hidden; z-index: 50;
+  }
+  .profile-dropdown-header { padding: 12px 16px; border-bottom: 1px solid var(--border); }
+  .profile-dropdown-name { font-weight: 700; font-size: 14px; color: var(--text); }
+  .profile-dropdown-role { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .profile-dropdown-item {
+    display: flex; align-items: center; gap: 8px; width: 100%; text-align: left;
+    background: none; border: none; padding: 10px 16px; font-size: 13px; color: var(--text);
+  }
+  .profile-dropdown-item:hover { background: #f9fafb; }
+  .profile-dropdown-item.logout { color: var(--danger); }
+
+  /* ---------- Modal (ganti password) ---------- */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+    display: flex; align-items: center; justify-content: center; z-index: 100; padding: 16px;
+  }
+  .modal-card {
+    background: #fff; border-radius: 12px; padding: 28px; width: 100%; max-width: 360px; position: relative;
+  }
+  .modal-close {
+    position: absolute; top: 14px; right: 14px; background: none; border: none;
+    font-size: 18px; color: var(--muted); padding: 4px; line-height: 1;
+  }
+  .modal-card h2 { font-size: 17px; margin: 0 0 16px; }
+  .success-banner {
+    background: #f0fdf4; color: var(--success); border-radius: 8px;
+    padding: 10px 12px; font-size: 13px; margin-bottom: 16px;
+  }
 
   main {
     max-width: 1000px;
@@ -169,6 +205,9 @@
   .total-card .label { font-size: 13px; opacity: 0.85; margin-bottom: 6px; }
   .total-card .amount { font-size: 36px; font-weight: 700; line-height: 1.1; }
   .total-card .meta { margin-top: 10px; font-size: 13px; opacity: 0.9; }
+  .total-card.secondary { background: linear-gradient(135deg, #0f766e, #115e59); }
+  .totals-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-bottom: 24px; }
+  .totals-row .total-card { margin-bottom: 0; }
 
   .branch-grid {
     display: grid;
@@ -202,6 +241,8 @@
   .branch-card .net.purchases { color: var(--accent-dark); }
   .branch-card .trx { font-size: 13px; color: var(--muted); }
   .branch-card .detail { font-size: 12px; color: var(--muted); margin-top: 8px; border-top: 1px dashed var(--border); padding-top: 8px; line-height: 1.6; }
+  .branch-card .last-sync { font-size: 11px; color: var(--muted); margin-top: 8px; }
+  .branch-card .last-sync.stale { color: var(--danger); font-weight: 600; }
 
   .chart-section {
     background: var(--card);
@@ -216,6 +257,7 @@
   .bar-row .bar-track { flex: 1; background: #f3f4f6; border-radius: 6px; height: 22px; position: relative; overflow: hidden; }
   .bar-row .bar-fill { height: 100%; background: var(--accent); border-radius: 6px; transition: width 0.3s; }
   .bar-row .bar-fill.negative { background: var(--danger); }
+  .bar-row .bar-fill.purchases { background: #0f766e; }
   .bar-row .bar-value { width: 140px; flex-shrink: 0; text-align: right; font-variant-numeric: tabular-nums; }
 
   .state-msg {
@@ -247,11 +289,40 @@
 <div id="dashboard-view" class="hidden">
   <header>
     <h1>pos-pusat — Dashboard Konsolidasi</h1>
-    <div class="user-info">
-      <span id="user-name"></span>
-      <button class="btn-logout" id="logout-btn">Keluar</button>
+    <div class="profile-menu" id="profile-menu">
+      <button class="profile-trigger" id="profile-trigger" type="button">
+        <span class="profile-avatar">👤</span>
+        <span id="user-name"></span>
+        <span class="chevron">▾</span>
+      </button>
+      <div class="profile-dropdown hidden" id="profile-dropdown">
+        <div class="profile-dropdown-header">
+          <div class="profile-dropdown-name" id="dropdown-user-name"></div>
+          <div class="profile-dropdown-role">Owner</div>
+        </div>
+        <button class="profile-dropdown-item" id="change-password-btn" type="button">🔑 Ganti Password</button>
+        <button class="profile-dropdown-item logout" id="logout-btn" type="button">🚪 Keluar</button>
+      </div>
     </div>
   </header>
+
+  <div class="modal-overlay hidden" id="change-password-modal">
+    <div class="modal-card">
+      <button class="modal-close" id="change-password-close" type="button">×</button>
+      <h2>Ganti Password</h2>
+      <div id="change-password-error"></div>
+      <div id="change-password-success"></div>
+      <form id="change-password-form">
+        <label for="cp-current">Password Saat Ini</label>
+        <input type="password" id="cp-current" autocomplete="current-password" required>
+        <label for="cp-new">Password Baru (min 6 karakter)</label>
+        <input type="password" id="cp-new" autocomplete="new-password" minlength="6" required>
+        <label for="cp-confirm">Konfirmasi Password Baru</label>
+        <input type="password" id="cp-confirm" autocomplete="new-password" minlength="6" required>
+        <button type="submit" class="btn-primary" id="cp-submit">Simpan Password Baru</button>
+      </form>
+    </div>
+  </div>
 
   <main>
     <div class="filter-bar">
@@ -297,13 +368,15 @@ async function apiFetch(path, options = {}) {
     throw new Error('Tidak bisa menghubungi server — periksa koneksi.');
   }
 
-  // 401 di /auth/login ARTINYA username/password salah — itu bukan "sesi
-  // berakhir" (belum pernah ada sesi sama sekali), jadi JANGAN diperlakukan
-  // sama dgn 401 di endpoint lain (yg memang berarti token tidak valid/
-  // kedaluwarsa/user dinonaktifkan). Biarkan jatuh ke penanganan error
-  // biasa di bawah supaya pesan ASLI dari server ("Username atau password
-  // salah") yang tampil, bukan pesan generik "sesi berakhir".
-  if (res.status === 401 && path !== '/auth/login') {
+  // 401 di /auth/login ARTINYA username/password salah, dan di
+  // /auth/change-password ARTINYA password SAAT INI yang salah — keduanya
+  // BUKAN "sesi berakhir" (token-nya sendiri masih sah), jadi JANGAN
+  // diperlakukan sama dgn 401 di endpoint lain (yg memang berarti token
+  // tidak valid/kedaluwarsa/user dinonaktifkan). Biarkan jatuh ke
+  // penanganan error biasa di bawah supaya pesan ASLI dari server yang
+  // tampil ("Username atau password salah" / "Password saat ini salah"),
+  // bukan pesan generik "sesi berakhir" yang juga memaksa logout.
+  if (res.status === 401 && path !== '/auth/login' && path !== '/auth/change-password') {
     clearToken();
     showLogin('Sesi berakhir, silakan login kembali.');
     throw new Error('unauthorized');
@@ -336,7 +409,11 @@ function showLogin(message) {
 function showDashboard(user) {
   document.getElementById('login-view').classList.add('hidden');
   document.getElementById('dashboard-view').classList.remove('hidden');
-  if (user) document.getElementById('user-name').textContent = user.fullName || user.username;
+  if (user) {
+    const name = user.full_name || user.username;
+    document.getElementById('user-name').textContent = name;
+    document.getElementById('dropdown-user-name').textContent = name;
+  }
   loadReport();
 }
 
@@ -384,6 +461,73 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
 document.getElementById('logout-btn').addEventListener('click', () => {
   clearToken();
   showLogin();
+});
+
+// ---------- Dropdown profil ----------
+const profileMenuEl = document.getElementById('profile-menu');
+const profileDropdownEl = document.getElementById('profile-dropdown');
+document.getElementById('profile-trigger').addEventListener('click', (e) => {
+  e.stopPropagation();
+  profileDropdownEl.classList.toggle('hidden');
+});
+document.addEventListener('click', (e) => {
+  if (!profileMenuEl.contains(e.target)) profileDropdownEl.classList.add('hidden');
+});
+
+// ---------- Modal ganti password ----------
+const changePasswordModalEl = document.getElementById('change-password-modal');
+const changePasswordFormEl = document.getElementById('change-password-form');
+
+function openChangePasswordModal() {
+  profileDropdownEl.classList.add('hidden');
+  document.getElementById('change-password-error').innerHTML = '';
+  document.getElementById('change-password-success').innerHTML = '';
+  changePasswordFormEl.reset();
+  changePasswordModalEl.classList.remove('hidden');
+  document.getElementById('cp-current').focus();
+}
+function closeChangePasswordModal() {
+  changePasswordModalEl.classList.add('hidden');
+}
+
+document.getElementById('change-password-btn').addEventListener('click', openChangePasswordModal);
+document.getElementById('change-password-close').addEventListener('click', closeChangePasswordModal);
+changePasswordModalEl.addEventListener('click', (e) => {
+  if (e.target === changePasswordModalEl) closeChangePasswordModal();
+});
+
+changePasswordFormEl.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const errorEl = document.getElementById('change-password-error');
+  const successEl = document.getElementById('change-password-success');
+  errorEl.innerHTML = '';
+  successEl.innerHTML = '';
+
+  const currentPassword = document.getElementById('cp-current').value;
+  const newPassword = document.getElementById('cp-new').value;
+  const confirmPassword = document.getElementById('cp-confirm').value;
+
+  if (newPassword !== confirmPassword) {
+    errorEl.innerHTML = '<div class="error-banner">Konfirmasi password baru tidak cocok</div>';
+    return;
+  }
+
+  const submitBtn = document.getElementById('cp-submit');
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Menyimpan...';
+  try {
+    await apiFetch('/auth/change-password', {
+      method: 'PUT',
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+    successEl.innerHTML = '<div class="success-banner">Password berhasil diubah</div>';
+    changePasswordFormEl.reset();
+  } catch (err) {
+    if (err.message !== 'unauthorized') errorEl.innerHTML = '<div class="error-banner">' + escapeHtml(err.message) + '</div>';
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Simpan Password Baru';
+  }
 });
 
 // ---------- Filter bar ----------
@@ -438,6 +582,21 @@ function renderError(message) {
     '<div class="error-banner">' + escapeHtml(message) + '</div>';
 }
 
+// Cabang yang belum pernah sync sama sekali, atau sudah lebih dari 60 menit
+// sejak kiriman terakhir — ditandai mencolok, bisa jadi pertanda sync mati/
+// bermasalah di cabang itu, bukan sekadar nol transaksi.
+const STALE_SYNC_MINUTES = 60;
+function renderLastSync(lastSyncAt) {
+  if (!lastSyncAt) {
+    return '<div class="last-sync stale">⚠️ Belum pernah sync</div>';
+  }
+  const minutesAgo = (Date.now() - new Date(lastSyncAt).getTime()) / 60000;
+  const stale = minutesAgo > STALE_SYNC_MINUTES;
+  const label = new Date(lastSyncAt).toLocaleString('id-ID');
+  return '<div class="last-sync' + (stale ? ' stale' : '') + '">' +
+    (stale ? '⚠️ ' : '') + 'Terakhir sync: ' + escapeHtml(label) + '</div>';
+}
+
 function renderReport(data) {
   const contentEl = document.getElementById('report-content');
   const branches = data.branches || [];
@@ -449,14 +608,23 @@ function renderReport(data) {
 
   const totalNet = Number(data.total.netOmzet) || 0;
   const totalNegative = totalNet < 0;
+  const totalPurchases = Number(data.total.netPurchases) || 0;
 
   let html = '';
 
-  // Total card
-  html += '<div class="total-card">';
-  html += '  <div class="label">Omzet Bersih Gabungan — ' + escapeHtml(data.label || '') + '</div>';
-  html += '  <div class="amount">' + formatRupiah(totalNet) + '</div>';
-  html += '  <div class="meta">' + formatNumber(data.total.transactionCount) + ' transaksi di seluruh cabang</div>';
+  // Total cards — Omzet & Pembelian berdampingan (dua metrik independen,
+  // bukan saling dikurangkan — lihat catatan di ReportService.js).
+  html += '<div class="totals-row">';
+  html += '  <div class="total-card">';
+  html += '    <div class="label">Omzet Bersih Gabungan — ' + escapeHtml(data.label || '') + '</div>';
+  html += '    <div class="amount">' + formatRupiah(totalNet) + '</div>';
+  html += '    <div class="meta">' + formatNumber(data.total.transactionCount) + ' transaksi di seluruh cabang</div>';
+  html += '  </div>';
+  html += '  <div class="total-card secondary">';
+  html += '    <div class="label">Pembelian Bersih Gabungan — ' + escapeHtml(data.label || '') + '</div>';
+  html += '    <div class="amount">' + formatRupiah(totalPurchases) + '</div>';
+  html += '    <div class="meta">seluruh cabang</div>';
+  html += '  </div>';
   html += '</div>';
 
   // Branch cards
@@ -487,6 +655,7 @@ function renderReport(data) {
     html += 'Beli kotor ' + formatRupiah(b.grossPurchases) + ' &middot; Retur beli ' + formatNumber(b.purchaseReturnCount) + ' (' + formatRupiah(b.totalPurchaseReturns) + ')';
     if (Number(b.voidedPurchaseCount) > 0) html += ' &middot; ' + formatNumber(b.voidedPurchaseCount) + ' beli di-void';
     html += '  </div>';
+    html += '  ' + renderLastSync(b.lastSyncAt);
     html += '</div>';
   });
   html += '</div>';
@@ -504,6 +673,20 @@ function renderReport(data) {
       html += '  <div class="bar-label">' + escapeHtml(b.branchCode) + '</div>';
       html += '  <div class="bar-track"><div class="bar-fill' + (negative ? ' negative' : '') + '" style="width:' + widthPct.toFixed(1) + '%"></div></div>';
       html += '  <div class="bar-value">' + formatRupiah(net) + '</div>';
+      html += '</div>';
+    });
+    html += '</div>';
+
+    const maxAbsPurchases = Math.max(1, ...branches.map((b) => Math.abs(Number(b.netPurchases) || 0)));
+    html += '<div class="chart-section">';
+    html += '  <h2>Perbandingan Pembelian Bersih Antar Cabang</h2>';
+    branches.forEach((b) => {
+      const netP = Number(b.netPurchases) || 0;
+      const widthPctP = Math.max(2, (Math.abs(netP) / maxAbsPurchases) * 100);
+      html += '<div class="bar-row">';
+      html += '  <div class="bar-label">' + escapeHtml(b.branchCode) + '</div>';
+      html += '  <div class="bar-track"><div class="bar-fill purchases" style="width:' + widthPctP.toFixed(1) + '%"></div></div>';
+      html += '  <div class="bar-value">' + formatRupiah(netP) + '</div>';
       html += '</div>';
     });
     html += '</div>';

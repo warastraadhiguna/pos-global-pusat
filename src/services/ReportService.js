@@ -27,6 +27,7 @@ async function getConsolidatedReport({ startDate, endDate }) {
     `SELECT
        b.branch_code,
        b.branch_name,
+       b.last_sync_at,
        COALESCE(s.transaction_count, 0) AS transaction_count,
        COALESCE(s.voided_count, 0) AS voided_count,
        COALESCE(s.gross_sales, 0) AS gross_sales,
@@ -96,6 +97,7 @@ async function getConsolidatedReport({ startDate, endDate }) {
     return {
       branchCode: row.branch_code,
       branchName: row.branch_name || null,
+      lastSyncAt: row.last_sync_at,
       transactionCount,
       voidedCount: Number(row.voided_count) || 0,
       returnCount: Number(row.return_count) || 0,
